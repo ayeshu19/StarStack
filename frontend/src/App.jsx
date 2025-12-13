@@ -11,10 +11,12 @@ import LoadManagement from "./pages/LoadManagement";
 import AutoAssignment from "./pages/AutoAssignment";
 import FatigueSafety from "./pages/FatigueAndSafety";
 import SignIn from "./pages/Signin";
+import ResetPassword from "./pages/ResetPassword";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   const location = useLocation();
-  const hideSidebar = location.pathname === "/" || location.pathname === "/driver-dashboard";
+  const hideSidebar = location.pathname === "/" || location.pathname === "/driver-dashboard" || location.pathname === "/driver/reset-password";
 
   return (
     <div className="layout">
@@ -36,7 +38,7 @@ function App() {
           <Route path="/fatigue" element={<FatigueSafety />} />
 
           {/* Driver Route */}
-          <Route path="/driver-dashboard" element={<DriverDashboard />} />
+          <Route path="/driver-dashboard" element={<ProtectedRoute roleRequired="DRIVER"><DriverDashboard /></ProtectedRoute>} />
 
           <Route path="*" element={<div>404 - Page not found</div>} />
           <Route path="/driver/reset-password" element={<ResetPassword />} />

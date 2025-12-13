@@ -23,10 +23,22 @@ export default function Signin() {
 
       const { token, user } = response.data;
 
+      // Block wrong role-type login
+      if (role !== user.role) {
+        setError("Can't login, please check your role");
+        return;
+      }
+
       // Save token & details
       localStorage.setItem("token", token);
-      localStorage.setItem("role", user.role);
+      localStorage.setItem("userRole", user.role);
       localStorage.setItem("userId", user.id);
+      localStorage.setItem("driverId", user.id);
+      localStorage.setItem("driverData", JSON.stringify({
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }));
 
       // Attach token to axios globally
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -48,7 +60,7 @@ export default function Signin() {
   return (
     <div className="ss-page-root">
       <div className="ss-center-wrap">
-        
+
         <header className="ss-header">
           <img
             src="src/assets/truck.png"
