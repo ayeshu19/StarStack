@@ -450,7 +450,7 @@ function DriverDashboard() {
               gap: '8px'
             }}>
               <FiPackage style={{ color: '#3b82f6' }} />
-              <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Today's Assignments</h2>
+              <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: '#111827' }}>Today's Assignments</h2>
             </div>
             <div style={{ padding: '16px' }}>
               {assignments.length > 0 ? (
@@ -467,7 +467,7 @@ function DriverDashboard() {
                         borderRadius: '8px'
                       }}
                     >
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{assignment.loadRef}</span>
+                      <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>{assignment.loadRef}</span>
                       <span style={{
                         fontSize: '12px',
                         fontWeight: '500',
@@ -562,7 +562,7 @@ function DriverDashboard() {
                 gap: '8px'
               }}>
                 <FiPackage style={{ color: '#3b82f6' }} />
-                <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Today's Assignments</h2>
+                <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: '#111827' }}>Today's Assignments</h2>
               </div>
               <div style={{ padding: '16px' }}>
                 {assignments.length > 0 ? (
@@ -579,7 +579,7 @@ function DriverDashboard() {
                           borderRadius: '8px'
                         }}
                       >
-                        <span style={{ fontSize: '14px', fontWeight: '500' }}>{assignment.loadRef}</span>
+                        <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>{assignment.loadRef}</span>
                         <span style={{
                           fontSize: '12px',
                           fontWeight: '500',
@@ -615,7 +615,7 @@ function DriverDashboard() {
                 gap: '8px'
               }}>
                 <FiActivity style={{ color: '#f59e0b' }} />
-                <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Working Hours</h2>
+                <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: '#111827' }}>Working Hours</h2>
               </div>
               <div style={{ padding: '16px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
