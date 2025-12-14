@@ -33,5 +33,18 @@ namespace ShiftSync.Api.Models
 
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("vehicle_type")]
+        public string VehicleType { get; set; } = "truck";    // bike/van/truck
+
+        [Column("weekly_off")]
+        public string WeeklyOff { get; set; } = "SUNDAY";     // e.g. SUNDAY
+
+        [Column("status")]
+        public string Status { get; set; } = "ACTIVE";        // ACTIVE/INACTIVE
+
+        [Column("fatigue_score")]
+        public decimal FatigueScore { get; set; } = 0;
+
     }
 }
