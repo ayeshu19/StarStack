@@ -5,6 +5,7 @@ using System.Security.Claims;
 using ShiftSync.Api.Data;
 using ShiftSync.Api.DTOs;
 using ShiftSync.Api.Models;
+using ShiftSync.Api.Services;
 
 namespace ShiftSync.Api.Controllers
 {
@@ -14,7 +15,13 @@ namespace ShiftSync.Api.Controllers
     public class DriverDashboardController : ControllerBase
     {
         private readonly AppDbContext _context;
-        public DriverDashboardController(AppDbContext context) => _context = context;
+        private readonly FatigueService _fatigueService;
+
+        public DriverDashboardController(AppDbContext context, FatigueService fatigueService)
+        {
+            _context = context;
+            _fatigueService = fatigueService;
+        }
 
         private int GetDriverIdFromToken()
         {
@@ -163,14 +170,15 @@ namespace ShiftSync.Api.Controllers
             {
                 int driverId = GetDriverIdFromToken();
                 var now = DateTime.UtcNow;
-                var today = now.Date;
+                // Use UTC date for PostgreSQL compatibility
+                var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
 
                 // Get all attendance and filter in memory
                 var allAttendance = await _context.Attendances
                     .Where(a => a.DriverId == driverId)
                     .ToListAsync();
 
-                var existing = allAttendance.FirstOrDefault(a => a.Date.Date == today);
+                var existing = allAttendance.FirstOrDefault(a => a.Date.Date == today.Date);
 
                 if (existing != null && existing.CheckInTime != null)
                     return BadRequest(new { message = "Already checked in today" });
@@ -194,6 +202,10 @@ namespace ShiftSync.Api.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Update consecutive days after check-in
+                await _fatigueService.UpdateConsecutiveDays(driverId);
+
                 return Ok(new { message = "Checked in successfully", checkInTime = existing.CheckInTime });
             }
             catch (DbUpdateException)
@@ -214,13 +226,14 @@ namespace ShiftSync.Api.Controllers
             {
                 int driverId = GetDriverIdFromToken();
                 var now = DateTime.UtcNow;
-                var today = now.Date;
+                // Use UTC date for PostgreSQL compatibility
+                var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
 
                 var allAttendance = await _context.Attendances
                     .Where(a => a.DriverId == driverId)
                     .ToListAsync();
 
-                var attendance = allAttendance.FirstOrDefault(a => a.Date.Date == today);
+                var attendance = allAttendance.FirstOrDefault(a => a.Date.Date == today.Date);
 
                 if (attendance == null || attendance.CheckInTime == null)
                     return BadRequest(new { message = "No check-in record found for today" });
@@ -232,13 +245,97 @@ namespace ShiftSync.Api.Controllers
                 var totalHours = (attendance.CheckOutTime.Value - attendance.CheckInTime.Value).TotalHours;
                 attendance.TotalHours = Math.Round((decimal)totalHours, 2);
 
+                // Set overtime flag if worked more than 8 hours
+                attendance.IsOvertime = attendance.TotalHours > 8;
+
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "Checked out successfully", totalHours = attendance.TotalHours });
+                // Update fatigue score after checkout
+                var newFatigueScore = await _fatigueService.UpdateDriverFatigueScore(driverId);
+
+                return Ok(new
+                {
+                    message = "Checked out successfully",
+                    totalHours = attendance.TotalHours,
+                    isOvertime = attendance.IsOvertime,
+                    fatigueScore = newFatigueScore
+                });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Check-out failed", error = ex.Message });
+            }
+        }
+
+        // GET /api/driver/fatigue - Get driver's fatigue breakdown
+        [HttpGet("fatigue")]
+        public async Task<IActionResult> GetFatigueBreakdown()
+        {
+            try
+            {
+                int driverId = GetDriverIdFromToken();
+                var breakdown = await _fatigueService.CalculateFatigueScore(driverId);
+                return Ok(breakdown);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to load fatigue data", error = ex.Message });
+            }
+        }
+
+        // GET /api/driver/workload - Get driver's current workload for today
+        [HttpGet("workload")]
+        public async Task<IActionResult> GetTodayWorkload()
+        {
+            try
+            {
+                int driverId = GetDriverIdFromToken();
+                // Use UTC date range for PostgreSQL compatibility
+                var todayStart = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                var todayEnd = todayStart.AddDays(1);
+
+                var assignments = await _context.ShiftAssignments
+                    .Include(s => s.Load)
+                    .Where(s => s.DriverId == driverId &&
+                               s.AssignedDate >= todayStart && s.AssignedDate < todayEnd &&
+                               s.Status != "COMPLETED")
+                    .ToListAsync();
+
+                var totalStops = assignments.Sum(a => a.Load?.Stops ?? 0);
+                var totalHours = assignments.Sum(a => a.Load?.EstimatedHours ?? 0);
+                var totalDistance = assignments.Sum(a => a.Load?.EstimatedDistance ?? 0);
+
+                // Calculate overload indicator
+                decimal stopsNorm = Math.Min(1m, totalStops / 60m);
+                decimal hoursNorm = Math.Min(1m, totalHours / 10m);
+                decimal distanceNorm = Math.Min(1m, totalDistance / 200m);
+                decimal overloadScore = 0.50m * stopsNorm + 0.30m * hoursNorm + 0.20m * distanceNorm;
+
+                string overloadStatus = overloadScore < 0.75m ? "SAFE" :
+                                       overloadScore < 0.90m ? "WARNING" : "UNSAFE";
+
+                return Ok(new
+                {
+                    activeLoadsCount = assignments.Count,
+                    totalStops,
+                    totalEstimatedHours = Math.Round(totalHours, 2),
+                    totalEstimatedDistance = Math.Round(totalDistance, 2),
+                    overloadScore = Math.Round(overloadScore, 4),
+                    overloadStatus,
+                    loads = assignments.Select(a => new
+                    {
+                        a.AssignmentId,
+                        a.LoadRef,
+                        a.Status,
+                        Stops = a.Load?.Stops ?? 0,
+                        EstimatedHours = a.Load?.EstimatedHours ?? 0,
+                        Region = a.Load?.Region ?? ""
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to load workload data", error = ex.Message });
             }
         }
     }

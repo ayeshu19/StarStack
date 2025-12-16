@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -30,6 +31,13 @@ namespace ShiftSync.Api.Models
 
         [Column("is_absent")]
         public bool IsAbsent { get; set; } = true;
+
+        // NEW: map to your DB columns is_overtime, overtime_approved
+        [Column("is_overtime")]
+        public bool IsOvertime { get; set; } = false;
+
+        [Column("overtime_approved")]
+        public bool? OvertimeApproved { get; set; }
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

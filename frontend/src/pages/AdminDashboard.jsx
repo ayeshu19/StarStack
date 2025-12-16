@@ -1,98 +1,125 @@
-import React from "react";
-import { FiUsers, FiTruck, FiAlertTriangle } from "react-icons/fi";
+import { useState, useEffect, useCallback } from "react";
+import { FiUsers, FiTruck, FiAlertTriangle, FiRefreshCw } from "react-icons/fi";
 import StatCard from "../components/StatCard";
 import PageHeader from "../components/PageHeader";
 import { StatusBadge, FatiguePill } from "../components/Badges";
-
-const ASSIGNMENTS = [
-  {
-    id: "LD-2401",
-    driver: "Arjun Kumar",
-    area: "T Nagar",
-    status: { label: "In Transit", tone: "blue" },
-    fatigue: "Low",
-  },
-  {
-    id: "LD-2402",
-    driver: "Priya Ramesh",
-    area: "Tambaram",
-    status: { label: "Assigned", tone: "gray" },
-    fatigue: "Medium",
-  },
-  {
-    id: "LD-2403",
-    driver: "Karthik Raj",
-    area: "Velachery",
-    status: { label: "In Transit", tone: "blue" },
-    fatigue: "Low",
-  },
-  {
-    id: "LD-2404",
-    driver: "Meena Lakshmi",
-    area: "Anna Nagar",
-    status: { label: "Completed", tone: "dark" },
-    fatigue: "High",
-  },
-  {
-    id: "LD-2405",
-    driver: "Ravi Shankar",
-    area: "Coimbatore",
-    status: { label: "In Transit", tone: "blue" },
-    fatigue: "Medium",
-  },
-  {
-    id: "LD-2406",
-    driver: "Divya Narayanan",
-    area: "Madurai",
-    status: { label: "Assigned", tone: "gray" },
-    fatigue: "Low",
-  },
-];
-
-const ALERTS = [
-  {
-    id: 1,
-    title: "Lakshmi - High fatigue detected (8.5/10)",
-    time: "10 min ago",
-    level: "high",
-  },
-  {
-    id: 2,
-    title: "Sanjay Iyer - Approaching limit (7.2/10)",
-    time: "25 min ago",
-    level: "medium",
-  },
-];
+import * as fatigueService from "../services/fatigueService";
+import * as assignmentService from "../services/assignmentService";
+import { getDriverStats } from "../services/adminDriverService";
+import { getLoadStats } from "../services/loadService";
 
 function AdminDashboard() {
+  const [stats, setStats] = useState({
+    activeDrivers: 0,
+    pendingLoads: 0,
+    assignedLoads: 0,
+    highFatigueDrivers: 0,
+  });
+  const [assignments, setAssignments] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [driverStatsRes, loadStatsRes, assignmentsRes, alertsRes] = await Promise.all([
+        getDriverStats(),
+        getLoadStats(),
+        assignmentService.getAssignments({ date: new Date().toISOString().split('T')[0] }),
+        fatigueService.getFatigueAlerts(),
+      ]);
+
+      setStats({
+        activeDrivers: driverStatsRes.data.activeDrivers || 0,
+        pendingLoads: loadStatsRes.data.pendingLoads || 0,
+        assignedLoads: loadStatsRes.data.assignedLoads || 0,
+        highFatigueDrivers: driverStatsRes.data.highFatigueDrivers || 0,
+      });
+
+      setAssignments(assignmentsRes.data || []);
+      setAlerts(alertsRes.data.alerts || []);
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+      setError("Failed to load dashboard data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const getStatusTone = (status) => {
+    switch (status) {
+      case "COMPLETED": return "dark";
+      case "IN_PROGRESS": return "blue";
+      case "ASSIGNED": return "gray";
+      default: return "gray";
+    }
+  };
+
+  const getFatigueLabel = (score) => {
+    if (score > 70) return "High";
+    if (score > 40) return "Medium";
+    return "Low";
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: "40px", textAlign: "center" }}>
+        <p>Loading dashboard...</p>
+      </div>
+    );
+  }
+
   return (
     <>
-      <PageHeader
-        title="Admin Dashboard"
-        subtitle="Monitor your logistics operations in real-time"
-      />
+      <header className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h1 className="page-title">Admin Dashboard</h1>
+          <p className="page-subtitle">Monitor your logistics operations in real-time</p>
+        </div>
+        <button
+          onClick={fetchData}
+          className="btn btn-secondary"
+          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+        >
+          <FiRefreshCw size={16} /> Refresh
+        </button>
+      </header>
+
+      {error && (
+        <div style={{ padding: "12px 16px", backgroundColor: "#fee2e2", color: "#991b1b", borderRadius: "8px", marginBottom: "16px" }}>
+          {error}
+        </div>
+      )}
+
       <section className="stats-grid">
         <StatCard
           label="Active Drivers"
-          value="24"
+          value={stats.activeDrivers}
           icon={FiUsers}
           variant="default"
         />
         <StatCard
           label="Pending Loads"
-          value="12"
+          value={stats.pendingLoads}
           icon={FiTruck}
           variant="orange"
         />
         <StatCard
           label="Assigned Loads"
-          value="38"
+          value={stats.assignedLoads}
           icon={FiTruck}
           variant="green"
         />
         <StatCard
           label="High Fatigue Drivers"
-          value="3"
+          value={stats.highFatigueDrivers}
           icon={FiAlertTriangle}
           variant="red"
         />
@@ -101,38 +128,51 @@ function AdminDashboard() {
       <section className="content-grid">
         <div className="card panel">
           <div className="panel-header">
-            <h2 className="section-title">Current Assignments</h2>
+            <h2 className="section-title">Today's Assignments</h2>
           </div>
 
           <div className="table-wrapper">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Load ID</th>
+                  <th>Load Ref</th>
                   <th>Driver</th>
-                  <th>Area</th>
+                  <th>Region</th>
                   <th>Status</th>
-                  <th>Fatigue Impact</th>
+                  <th>Suitability</th>
                 </tr>
               </thead>
 
               <tbody>
-                {ASSIGNMENTS.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.id}</td>
-                    <td>{item.driver}</td>
-                    <td>{item.area}</td>
-                    <td>
-                      <StatusBadge
-                        label={item.status.label}
-                        tone={item.status.tone}
-                      />
-                    </td>
-                    <td>
-                      <FatiguePill label={item.fatigue} />
+                {assignments.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: "center", padding: "32px", color: "#6b7280" }}>
+                      No assignments today
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  assignments.slice(0, 6).map((item) => (
+                    <tr key={item.assignmentId}>
+                      <td style={{ fontWeight: 500 }}>{item.loadRef}</td>
+                      <td>{item.driverName}</td>
+                      <td>{item.loadRegion || item.driverRegion}</td>
+                      <td>
+                        <StatusBadge
+                          label={item.status}
+                          tone={getStatusTone(item.status)}
+                        />
+                      </td>
+                      <td>
+                        <span style={{
+                          fontWeight: 600,
+                          color: item.suitabilityScore >= 70 ? "#16a34a" : item.suitabilityScore >= 50 ? "#ca8a04" : "#dc2626"
+                        }}>
+                          {item.suitabilityScore?.toFixed(1) || "-"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -140,26 +180,32 @@ function AdminDashboard() {
 
         <div className="card panel alerts-panel">
           <div className="panel-header">
-            <h2 className="section-title">Alerts Panel</h2>
+            <h2 className="section-title">Fatigue Alerts</h2>
           </div>
 
-          {ALERTS.map((alert) => (
-            <div
-              key={alert.id}
-              className={`alert-card alert-${
-                alert.level === "high" ? "high" : "medium"
-              }`}
-            >
-              <div className="alert-icon">
-                <FiAlertTriangle />
-              </div>
-
-              <div className="alert-content">
-                <div className="alert-title">{alert.title}</div>
-                <div className="alert-time">{alert.time}</div>
-              </div>
+          {alerts.length === 0 ? (
+            <div style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
+              No fatigue alerts
             </div>
-          ))}
+          ) : (
+            alerts.slice(0, 5).map((alert) => (
+              <div
+                key={alert.driverId}
+                className={`alert-card alert-${alert.alertLevel === "CRITICAL" ? "high" : "medium"}`}
+              >
+                <div className="alert-icon">
+                  <FiAlertTriangle />
+                </div>
+
+                <div className="alert-content">
+                  <div className="alert-title">{alert.message}</div>
+                  <div className="alert-time">
+                    Consecutive days: {alert.consecutiveDays}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
     </>
