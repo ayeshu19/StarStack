@@ -46,5 +46,11 @@ namespace ShiftSync.Api.Models
         [Column("fatigue_score")]
         public decimal FatigueScore { get; set; } = 0;
 
+        [Column("consecutive_days")]
+        public int ConsecutiveDays { get; set; } = 0;
+
+        [Column("last_assignment_date")]
+        public DateTime? LastAssignmentDate { get; set; }
+
     }
 }

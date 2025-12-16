@@ -1,18 +1,12 @@
 namespace ShiftSync.Api.DTOs
 {
-    public class DriverProfileDto
+    public class CsvDriverDto
     {
-        public int DriverId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Phone { get; set; } = string.Empty;
         public string? Email { get; set; }
         public string Region { get; set; } = string.Empty;
         public string VehicleType { get; set; } = string.Empty;
         public string WeeklyOff { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public decimal FatigueScore { get; set; }
-        public DateTime? LastAssignmentDate { get; set; }
-        public int ConsecutiveDays { get; set; }
-        public DateTime CreatedAt { get; set; }
     }
 }

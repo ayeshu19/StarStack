@@ -29,3 +29,15 @@ export const getDriverProfile = async () => {
   const response = await api.get("/driver/me");
   return response.data;
 };
+
+// Get driver's fatigue breakdown
+export const getDriverFatigue = async () => {
+  const response = await api.get("/driver/fatigue");
+  return response.data;
+};
+
+// Get driver's current workload
+export const getDriverWorkload = async () => {
+  const response = await api.get("/driver/workload");
+  return response.data;
+};
